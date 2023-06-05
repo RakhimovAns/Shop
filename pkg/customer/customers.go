@@ -81,7 +81,7 @@ select id, password from customers where phone=$1
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &help.TokenClaim{
 		jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(5 * time.Minute).Unix(),
+			ExpiresAt: time.Now().Add(10 * time.Minute).Unix(),
 		},
 		id,
 	})

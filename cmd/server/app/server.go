@@ -247,7 +247,12 @@ func (s *Server) HandleAddToCart(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	id := *<-channel
-	err = s.cartsSvc.SaveToCart(request.Context(), id, Products)
+	err, ID := s.cartsSvc.CreateCart(request.Context(), id)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	err = s.cartsSvc.SaveToCart(request.Context(), ID, Products)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
