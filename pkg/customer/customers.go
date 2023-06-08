@@ -21,7 +21,6 @@ func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool}
 }
 
-// var ErrExpired = errors.New("expired")
 var ErrNoSuchUser = errors.New("no such user")
 
 // var ErrInternal = errors.New("internal error")
@@ -118,4 +117,25 @@ select  id,name,phone,password,active,created,balance from customers where id=$1
 		return err, nil
 	}
 	return nil, customer
+}
+
+func (s *Service) ChangeBalance(ctx context.Context, id int64, sum int64) error {
+	_, err := s.pool.Exec(ctx, `
+update customers set balance=customers.balance-$1 where id=$2
+`, sum, id)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
+func (s *Service) DepositBalance(ctx context.Context, id int64, sum int64) error {
+	_, err := s.pool.Exec(ctx, `
+update customers set balance=customers.balance+$1 where id=$2
+`, sum, id)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
 }

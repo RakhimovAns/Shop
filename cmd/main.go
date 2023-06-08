@@ -6,6 +6,7 @@ import (
 	"github.com/RakhimovAns/Shop/pkg/carts"
 	"github.com/RakhimovAns/Shop/pkg/customer"
 	"github.com/RakhimovAns/Shop/pkg/products"
+	"github.com/RakhimovAns/Shop/pkg/purchase"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go.uber.org/dig"
@@ -38,6 +39,7 @@ func execute(host string, port string, dsn string) (err error) {
 		customer.NewService,
 		product.NewService,
 		carts.NewService,
+		purchase.NewService,
 		func(server *app.Server) *http.Server {
 			return &http.Server{
 				Addr:    net.JoinHostPort(host, port),
