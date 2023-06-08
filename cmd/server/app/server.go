@@ -50,7 +50,6 @@ func (s *Server) Init() {
 	SubRoutineCustomer := s.mux.PathPrefix("/api/customer").Subrouter()
 	SubRoutineCustomer.Use(middleware.Auth(channel))
 	SubRoutineCustomer.HandleFunc("/MakePurchase", s.HandleMakePurchase)
-	SubRoutineCustomer.HandleFunc("/check", s.HandleChecker).Methods(POST)
 	SubRoutineCustomer.HandleFunc("/delete", s.HandleDelete).Methods(DELETE)
 	SubRoutineCustomer.HandleFunc("/deposit", s.HandleDepositBalance).Methods(POST)
 	s.mux.HandleFunc("/api/customer/get/{ID}", s.HandleGetByID).Methods(GET)
