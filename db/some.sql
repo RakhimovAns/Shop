@@ -1,1 +1,0 @@
-alter SEQUENCE customers_id_seq RESTART 1

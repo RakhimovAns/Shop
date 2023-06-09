@@ -21,7 +21,7 @@ type Product struct {
 	Price    int64  `json:"price"`
 	QTY      int64  `json:"qty"`
 }
-type Product_without_category struct {
+type ProductsWithoutCategory struct {
 	ID    int64  `json:"id"`
 	Name  string `json:"name"`
 	Price int64  `json:"price"`
@@ -31,7 +31,7 @@ type Product_without_category struct {
 func (s *Service) AllActiveProducts(ctx context.Context) ([]*Product, error) {
 	items := make([]*Product, 0)
 	rows, err := s.pool.Query(ctx, `
-select id,category,name,price,qty from products where  active=true order by category limit  500 
+		select id,category,name,price,qty from products where  active=true order by category limit  500 
 `)
 	if err != nil {
 
@@ -58,7 +58,7 @@ select id,category,name,price,qty from products where  active=true order by cate
 func (s *Service) AllCategories(ctx context.Context) ([]*string, error) {
 	Categories := make([]*string, 0)
 	rows, err := s.pool.Query(ctx, `
-select category from products where active=true limit 500
+		select category from products where active=true limit 500
 `)
 	if err != nil {
 		log.Println(err)
@@ -75,17 +75,17 @@ select category from products where active=true limit 500
 	}
 	return Categories, nil
 }
-func (s *Service) GetByCategory(ctx context.Context, category string) ([]*Product_without_category, error) {
-	items := make([]*Product_without_category, 0)
+func (s *Service) GetByCategory(ctx context.Context, category string) ([]*ProductsWithoutCategory, error) {
+	items := make([]*ProductsWithoutCategory, 0)
 	rows, err := s.pool.Query(ctx, `
-select id,name,price,qty from products where active=true and category=$1 limit 500
+		select id,name,price,qty from products where active=true and category=$1 limit 500
 `, category)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 	for rows.Next() {
-		product := &Product_without_category{}
+		product := &ProductsWithoutCategory{}
 		err = rows.Scan(&product.ID, &product.Name, &product.Price, &product.QTY)
 		if err != nil {
 			log.Println(err)
@@ -99,7 +99,7 @@ select id,name,price,qty from products where active=true and category=$1 limit 5
 func (s *Service) Search(ctx context.Context, Key string) ([]*Product, error) {
 	items := make([]*Product, 0)
 	rows, err := s.pool.Query(ctx, `
-select id,category,name,price,qty from products where  active=true and lower(name) like lower($1)
+		select id,category,name,price,qty from products where  active=true and lower(name) like lower($1)
 `, Key)
 	if err != nil {
 		log.Println(err)

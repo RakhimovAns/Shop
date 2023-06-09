@@ -26,6 +26,7 @@ type Server struct {
 	purchasesSvc *purchase.Service
 }
 
+// NewServer TODO Create NewServer
 func NewServer(mux *mux.Router, customerSvc *customer.Service, productSvc *product.Service, cartsSvc *carts.Service, purchasesSvc *purchase.Service) *Server {
 	return &Server{mux: mux, customersSvc: customerSvc, productsSvc: productSvc, cartsSvc: cartsSvc, purchasesSvc: purchasesSvc}
 }
@@ -68,6 +69,8 @@ func (s *Server) Init() {
 	SubRoutinePurchase.HandleFunc("/GetAll", s.HandleGetAllPurchaseByID).Methods(GET)
 
 }
+
+// HandleRegister TODO  Register Customer
 func (s *Server) HandleRegister(writer http.ResponseWriter, request *http.Request) {
 	var item *customer.Customer
 	err := json.NewDecoder(request.Body).Decode(&item)
@@ -77,61 +80,64 @@ func (s *Server) HandleRegister(writer http.ResponseWriter, request *http.Reques
 	}
 	err = s.customersSvc.Register(request.Context(), item)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, "Register has been failed", http.StatusInternalServerError)
 		return
 	}
 	_, err = writer.Write([]byte("Was saved successfully"))
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
+
+// HandleGetProduct  TODO Get All Products
 func (s *Server) HandleGetProduct(writer http.ResponseWriter, request *http.Request) {
 	items, err := s.productsSvc.AllActiveProducts(request.Context())
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, "Can't Get All Products", http.StatusBadRequest)
 		return
 	}
 	data, err := json.Marshal(items)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	_, err = writer.Write([]byte("There is all products\n"))
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
 
+// HandleGetCategory TODO Get All Categories
 func (s *Server) HandleGetCategory(writer http.ResponseWriter, request *http.Request) {
 	items, err := s.productsSvc.AllCategories(request.Context())
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, "Can't Get All Categories", http.StatusBadRequest)
 		return
 	}
 	data, err := json.Marshal(items)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	_, err = writer.Write([]byte("There is all categories\n"))
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
 
+// HandleGetProductByCategory TODO Get Products By Category
 func (s *Server) HandleGetProductByCategory(writer http.ResponseWriter, request *http.Request) {
 	Category := mux.Vars(request)["category"]
 	items, err := s.productsSvc.GetByCategory(request.Context(), Category)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, "Can't Get Product By Category", http.StatusBadRequest)
 		return
 	}
 	if len(items) == 0 {
@@ -140,24 +146,25 @@ func (s *Server) HandleGetProductByCategory(writer http.ResponseWriter, request 
 	}
 	data, err := json.Marshal(items)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	_, err = writer.Write([]byte("There is all products in this category\n"))
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
 
+// HandleGetProductBySearch TODO Search Product
 func (s *Server) HandleGetProductBySearch(writer http.ResponseWriter, request *http.Request) {
 	Key := mux.Vars(request)["Word"]
 	Key = "%" + Key + "%"
 	items, err := s.productsSvc.Search(request.Context(), Key)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, "Can't Search ", http.StatusBadRequest)
 	}
 	if len(items) == 0 {
 		_, err = writer.Write([]byte("There is  not any product for this key"))
@@ -165,16 +172,18 @@ func (s *Server) HandleGetProductBySearch(writer http.ResponseWriter, request *h
 	}
 	data, err := json.Marshal(items)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
+
+// HandleLogin TODO Login and give token
 func (s *Server) HandleLogin(writer http.ResponseWriter, request *http.Request) {
 	var item *customer.Customer
 	err := json.NewDecoder(request.Body).Decode(&item)
@@ -186,13 +195,13 @@ func (s *Server) HandleLogin(writer http.ResponseWriter, request *http.Request) 
 	if err == customer.ErrNoSuchUser {
 		_, err = writer.Write([]byte("No account with this phone number"))
 		if err != nil {
-			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 	} else if err == customer.ErrInvalidPassword {
 		_, err = writer.Write([]byte("Passwords don't match"))
 		if err != nil {
-			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(500), http.StatusInternalServerError)
 			return
 		}
 	} else if err != nil {
@@ -201,23 +210,24 @@ func (s *Server) HandleLogin(writer http.ResponseWriter, request *http.Request) 
 	} else if err == nil {
 		_, err = writer.Write([]byte("You have been login successfully\nHere is your Token\n"))
 		if err != nil {
-			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(500), 500)
 			return
 		}
 		data, err := json.Marshal(token)
 		if err != nil {
-			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 		writer.Header().Set("Content-Type", "application/json")
 		_, err = writer.Write(data)
 		if err != nil {
-			http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
+// HandleDelete TODO Delete Customer
 func (s *Server) HandleDelete(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
 	err := s.customersSvc.Delete(request.Context(), id)
@@ -227,11 +237,12 @@ func (s *Server) HandleDelete(writer http.ResponseWriter, request *http.Request)
 	}
 	_, err = writer.Write([]byte("Was deleted"))
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
 
+// HandleGetByID TODO Get Customer By ID
 func (s *Server) HandleGetByID(writer http.ResponseWriter, request *http.Request) {
 	IDParam := mux.Vars(request)["ID"]
 	id, err := strconv.ParseInt(IDParam, 10, 64)
@@ -246,16 +257,17 @@ func (s *Server) HandleGetByID(writer http.ResponseWriter, request *http.Request
 	}
 	data, err := json.Marshal(Customer)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
 
+// HandleAddToCart TODO Add To Cart
 func (s *Server) HandleAddToCart(writer http.ResponseWriter, request *http.Request) {
 	var Products *[]carts.Product
 	err := json.NewDecoder(request.Body).Decode(&Products)
@@ -277,6 +289,7 @@ func (s *Server) HandleAddToCart(writer http.ResponseWriter, request *http.Reque
 	_, err = writer.Write([]byte("Added to cart successfully"))
 }
 
+// HandleDeleteProduct TODO Delete Product From Cart
 func (s *Server) HandleDeleteProduct(writer http.ResponseWriter, request *http.Request) {
 	var Products *[]carts.Product
 	err := json.NewDecoder(request.Body).Decode(&Products)
@@ -297,6 +310,7 @@ func (s *Server) HandleDeleteProduct(writer http.ResponseWriter, request *http.R
 	}
 }
 
+// HandleChangeQTY TODO Change QTY in Cart
 func (s *Server) HandleChangeQTY(writer http.ResponseWriter, request *http.Request) {
 	var Products *[]carts.Product
 	err := json.NewDecoder(request.Body).Decode(&Products)
@@ -311,7 +325,7 @@ func (s *Server) HandleChangeQTY(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	err = s.cartsSvc.ChangeQTY(request.Context(), ID, Products)
-	if err == carts.ErrNosuch {
+	if err == carts.ErrNoSuch {
 		http.Error(writer, "You want to delete more than you have ", http.StatusBadRequest)
 		return
 	}
@@ -321,6 +335,7 @@ func (s *Server) HandleChangeQTY(writer http.ResponseWriter, request *http.Reque
 	}
 }
 
+// HandleGetCart TODO Get Cart
 func (s *Server) HandleGetCart(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
 	err, ID := s.cartsSvc.GetCartID(request.Context(), id)
@@ -335,16 +350,18 @@ func (s *Server) HandleGetCart(writer http.ResponseWriter, request *http.Request
 	}
 	data, err := json.Marshal(Products)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
+
+// HandleGetSum TODO Get Sum Of Cart
 func (s *Server) HandleGetSum(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
 	err, ID := s.cartsSvc.GetCartID(request.Context(), id)
@@ -360,15 +377,17 @@ func (s *Server) HandleGetSum(writer http.ResponseWriter, request *http.Request)
 	sum, err := s.cartsSvc.GetSum(request.Context(), Products)
 	data, err := json.Marshal(sum)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
+
+// HandleDeleteCart TODO Delete Cart
 func (s *Server) HandleDeleteCart(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
 	err, ID := s.cartsSvc.GetCartID(request.Context(), id)
@@ -382,6 +401,8 @@ func (s *Server) HandleDeleteCart(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 }
+
+// HandleMakePurchase TODO Make Purchase
 func (s *Server) HandleMakePurchase(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
 	err, ID := s.cartsSvc.GetCartID(request.Context(), id)
@@ -421,6 +442,7 @@ func (s *Server) HandleMakePurchase(writer http.ResponseWriter, request *http.Re
 	}
 }
 
+// HandleGetAllPurchaseByID TODO Get All Purchases By ID
 func (s *Server) HandleGetAllPurchaseByID(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
 	Purchases, err := s.purchasesSvc.GetAllPurchase(request.Context(), id)
@@ -430,16 +452,18 @@ func (s *Server) HandleGetAllPurchaseByID(writer http.ResponseWriter, request *h
 	}
 	data, err := json.Marshal(Purchases)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 }
+
+// HandleDepositBalance TODO Deposit Balance
 func (s *Server) HandleDepositBalance(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
 	type Balance struct {

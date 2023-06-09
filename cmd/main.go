@@ -61,6 +61,7 @@ func execute(host string, port string, dsn string) (err error) {
 		server.Init()
 	})
 	if err != nil {
+		log.Println(err)
 		return err
 	}
 

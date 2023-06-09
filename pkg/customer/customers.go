@@ -22,8 +22,6 @@ func NewService(pool *pgxpool.Pool) *Service {
 }
 
 var ErrNoSuchUser = errors.New("no such user")
-
-// var ErrInternal = errors.New("internal error")
 var ErrInvalidPassword = errors.New("invalid password")
 
 type Customer struct {
@@ -51,7 +49,7 @@ func (s *Service) Register(ctx context.Context, customer *Customer) error {
 		return ErrInvalidPassword
 	}
 	_, err = s.pool.Exec(ctx, `
-insert into customers(name,phone,password,balance) values ($1,$2,$3,$4) on conflict (phone) do update set name=excluded.name
+		insert into customers(name,phone,password,balance) values ($1,$2,$3,$4) on conflict (phone) do update set name=excluded.name
 `, customer.Name, customer.Phone, hex.EncodeToString(hash), customer.Balance)
 	if err != nil {
 		log.Println(err)
@@ -64,7 +62,7 @@ func (s *Service) Login(ctx context.Context, login string, password string) (str
 	var hash string
 	var id int64
 	err := s.pool.QueryRow(ctx, `
-select id, password from customers where phone=$1
+		select id, password from customers where phone=$1
 `, login).Scan(&id, &hash)
 	if err == pgx.ErrNoRows {
 		return "", ErrNoSuchUser
@@ -90,7 +88,7 @@ select id, password from customers where phone=$1
 
 func (s *Service) Delete(ctx context.Context, id int64) error {
 	_, err := s.pool.Exec(ctx, `
-delete from customers where id=$1
+		delete from customers where id=$1
 `, id)
 	if err == ErrNoSuchUser {
 		log.Println(ErrNoSuchUser)
@@ -106,7 +104,7 @@ delete from customers where id=$1
 func (s *Service) GetByID(ctx context.Context, id int64) (error, *Customer) {
 	customer := &Customer{}
 	err := s.pool.QueryRow(ctx, `
-select  id,name,phone,password,active,created,balance from customers where id=$1
+		select  id,name,phone,password,active,created,balance from customers where id=$1
 `, id).Scan(&customer.ID, &customer.Name, &customer.Phone, &customer.Password, &customer.Active, &customer.Created, &customer.Balance)
 	if err == ErrNoSuchUser {
 		log.Println(ErrNoSuchUser)
@@ -121,7 +119,7 @@ select  id,name,phone,password,active,created,balance from customers where id=$1
 
 func (s *Service) ChangeBalance(ctx context.Context, id int64, sum int64) error {
 	_, err := s.pool.Exec(ctx, `
-update customers set balance=customers.balance-$1 where id=$2
+		update customers set balance=customers.balance-$1 where id=$2
 `, sum, id)
 	if err != nil {
 		log.Println(err)
@@ -131,7 +129,7 @@ update customers set balance=customers.balance-$1 where id=$2
 }
 func (s *Service) DepositBalance(ctx context.Context, id int64, sum int64) error {
 	_, err := s.pool.Exec(ctx, `
-update customers set balance=customers.balance+$1 where id=$2
+		update customers set balance=customers.balance+$1 where id=$2
 `, sum, id)
 	if err != nil {
 		log.Println(err)

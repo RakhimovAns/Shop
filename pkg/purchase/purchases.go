@@ -27,7 +27,7 @@ type Purchase struct {
 func (s *Service) AddToPurchase(ctx context.Context, products []*carts.Product, id int64) error {
 	for _, product := range products {
 		_, err := s.pool.Exec(ctx, `
-insert into purchases(customer_id, product_id, qty) VALUES ($1,$2,$3)
+			insert into purchases(customer_id, product_id, qty) VALUES ($1,$2,$3)
 `, id, product.ID, product.QTY)
 		if err != nil {
 			log.Println(err)
@@ -40,7 +40,7 @@ insert into purchases(customer_id, product_id, qty) VALUES ($1,$2,$3)
 func (s *Service) GetAllPurchase(ctx context.Context, id int64) ([]*Purchase, error) {
 	items := make([]*Purchase, 0)
 	rows, err := s.pool.Query(ctx, `
-select id,customer_id,product_id,qty,created from purchases where customer_id=$1
+		select id,customer_id,product_id,qty,created from purchases where customer_id=$1
 `, id)
 	if err != nil {
 		log.Println(err)
