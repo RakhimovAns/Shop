@@ -1,10 +1,10 @@
-package customer
+package postgresql
 
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"github.com/RakhimovAns/Shop/cmd/help"
+	"github.com/RakhimovAns/Shop/types"
 	"github.com/golang-jwt/jwt"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -13,31 +13,15 @@ import (
 	"time"
 )
 
-type Service struct {
+type CustomerService struct {
 	pool *pgxpool.Pool
 }
 
-func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+func NewCustomerService(pool *pgxpool.Pool) *CustomerService {
+	return &CustomerService{pool: pool}
 }
 
-var ErrNoSuchUser = errors.New("no such user")
-var ErrInvalidPassword = errors.New("invalid password")
-
-type Customer struct {
-	ID       int64     `json:"id"`
-	Name     string    `json:"name"`
-	Phone    string    `json:"phone"`
-	Password *string   `json:"password"`
-	Active   bool      `json:"active"`
-	Created  time.Time `json:"created"`
-	Balance  int64     `json:"balance"`
-}
-type Token struct {
-	Token string `json:"token"`
-}
-
-func (s *Service) Register(ctx context.Context, customer *Customer) error {
+func (s *CustomerService) Register(ctx context.Context, customer *types.Customer) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(*customer.Password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Println(err)
@@ -46,7 +30,7 @@ func (s *Service) Register(ctx context.Context, customer *Customer) error {
 	err = bcrypt.CompareHashAndPassword(hash, []byte(*customer.Password))
 	if err != nil {
 		log.Println(err)
-		return ErrInvalidPassword
+		return types.ErrInvalidPassword
 	}
 	_, err = s.pool.Exec(ctx, `
 		insert into customers(name,phone,password,balance) values ($1,$2,$3,$4) on conflict (phone) do update set name=excluded.name
@@ -58,14 +42,14 @@ func (s *Service) Register(ctx context.Context, customer *Customer) error {
 	return nil
 }
 
-func (s *Service) Login(ctx context.Context, login string, password string) (string, error) {
+func (s *CustomerService) Login(ctx context.Context, login string, password string) (string, error) {
 	var hash string
 	var id int64
 	err := s.pool.QueryRow(ctx, `
 		select id, password from customers where phone=$1
 `, login).Scan(&id, &hash)
 	if err == pgx.ErrNoRows {
-		return "", ErrNoSuchUser
+		return "", types.ErrNoSuchUser
 	}
 	hashed, err := hex.DecodeString(hash)
 	if err != nil {
@@ -74,7 +58,7 @@ func (s *Service) Login(ctx context.Context, login string, password string) (str
 	}
 	err = bcrypt.CompareHashAndPassword(hashed, []byte(password))
 	if err != nil {
-		return "", ErrInvalidPassword
+		return "", types.ErrInvalidPassword
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &help.TokenClaim{
 		jwt.StandardClaims{
@@ -86,13 +70,13 @@ func (s *Service) Login(ctx context.Context, login string, password string) (str
 	return TokenStr, nil
 }
 
-func (s *Service) Delete(ctx context.Context, id int64) error {
+func (s *CustomerService) Delete(ctx context.Context, id int64) error {
 	_, err := s.pool.Exec(ctx, `
 		delete from customers where id=$1
 `, id)
-	if err == ErrNoSuchUser {
-		log.Println(ErrNoSuchUser)
-		return ErrNoSuchUser
+	if err == types.ErrNoSuch {
+		log.Println(types.ErrNoSuchUser)
+		return types.ErrNoSuchUser
 	}
 	if err != nil {
 		log.Println(err)
@@ -101,14 +85,14 @@ func (s *Service) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Service) GetByID(ctx context.Context, id int64) (error, *Customer) {
-	customer := &Customer{}
+func (s *CustomerService) GetByID(ctx context.Context, id int64) (error, *types.Customer) {
+	customer := &types.Customer{}
 	err := s.pool.QueryRow(ctx, `
 		select  id,name,phone,password,active,created,balance from customers where id=$1
 `, id).Scan(&customer.ID, &customer.Name, &customer.Phone, &customer.Password, &customer.Active, &customer.Created, &customer.Balance)
-	if err == ErrNoSuchUser {
-		log.Println(ErrNoSuchUser)
-		return ErrNoSuchUser, nil
+	if err == types.ErrNoSuchUser {
+		log.Println(types.ErrNoSuchUser)
+		return types.ErrNoSuchUser, nil
 	}
 	if err != nil {
 		log.Println(err)
@@ -117,7 +101,7 @@ func (s *Service) GetByID(ctx context.Context, id int64) (error, *Customer) {
 	return nil, customer
 }
 
-func (s *Service) ChangeBalance(ctx context.Context, id int64, sum int64) error {
+func (s *CustomerService) ChangeBalance(ctx context.Context, id int64, sum int64) error {
 	_, err := s.pool.Exec(ctx, `
 		update customers set balance=customers.balance-$1 where id=$2
 `, sum, id)
@@ -127,7 +111,8 @@ func (s *Service) ChangeBalance(ctx context.Context, id int64, sum int64) error 
 	}
 	return nil
 }
-func (s *Service) DepositBalance(ctx context.Context, id int64, sum int64) error {
+
+func (s *CustomerService) DepositBalance(ctx context.Context, id int64, sum int64) error {
 	_, err := s.pool.Exec(ctx, `
 		update customers set balance=customers.balance+$1 where id=$2
 `, sum, id)

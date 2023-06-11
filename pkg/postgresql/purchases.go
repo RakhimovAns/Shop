@@ -1,30 +1,21 @@
-package purchase
+package postgresql
 
 import (
 	"context"
-	"github.com/RakhimovAns/Shop/pkg/carts"
+	"github.com/RakhimovAns/Shop/types"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
-	"time"
 )
 
-type Service struct {
+type PurchaseService struct {
 	pool *pgxpool.Pool
 }
 
-func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+func NewPurchaseService(pool *pgxpool.Pool) *PurchaseService {
+	return &PurchaseService{pool: pool}
 }
 
-type Purchase struct {
-	ID         int64     `json:"id"`
-	CustomerId int64     `json:"customer_id"`
-	ProductId  int64     `json:"product_id"`
-	QTY        int64     `json:"qty"`
-	Created    time.Time `json:"created"`
-}
-
-func (s *Service) AddToPurchase(ctx context.Context, products []*carts.Product, id int64) error {
+func (s *PurchaseService) AddToPurchase(ctx context.Context, products []*types.Product, id int64) error {
 	for _, product := range products {
 		_, err := s.pool.Exec(ctx, `
 			insert into purchases(customer_id, product_id, qty) VALUES ($1,$2,$3)
@@ -37,8 +28,8 @@ func (s *Service) AddToPurchase(ctx context.Context, products []*carts.Product, 
 	return nil
 }
 
-func (s *Service) GetAllPurchase(ctx context.Context, id int64) ([]*Purchase, error) {
-	items := make([]*Purchase, 0)
+func (s *PurchaseService) GetAllPurchase(ctx context.Context, id int64) ([]*types.Purchase, error) {
+	items := make([]*types.Purchase, 0)
 	rows, err := s.pool.Query(ctx, `
 		select id,customer_id,product_id,qty,created from purchases where customer_id=$1
 `, id)
@@ -47,7 +38,7 @@ func (s *Service) GetAllPurchase(ctx context.Context, id int64) ([]*Purchase, er
 		return nil, err
 	}
 	for rows.Next() {
-		purchase := &Purchase{}
+		purchase := &types.Purchase{}
 		err = rows.Scan(&purchase.ID, &purchase.CustomerId, &purchase.ProductId, &purchase.QTY, &purchase.Created)
 		if err != nil {
 			log.Println(err)
@@ -56,4 +47,14 @@ func (s *Service) GetAllPurchase(ctx context.Context, id int64) ([]*Purchase, er
 		items = append(items, purchase)
 	}
 	return items, err
+}
+func (s *PurchaseService) DeletePurchase(ctx context.Context, id int64) error {
+	_, err := s.pool.Exec(ctx, `
+delete from purchases where customer_id=$1
+`, id)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
 }
