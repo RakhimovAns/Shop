@@ -1,37 +1,24 @@
-package product
+package postgresql
 
 import (
 	"context"
+	"github.com/RakhimovAns/Shop/types"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
 )
 
-type Service struct {
+type ProductService struct {
 	pool *pgxpool.Pool
 }
 
-func NewService(pool *pgxpool.Pool) *Service {
-	return &Service{pool: pool}
+func NewProductService(pool *pgxpool.Pool) *ProductService {
+	return &ProductService{pool: pool}
 }
 
-type Product struct {
-	ID       int64  `json:"id"`
-	Category string `json:"category"`
-	Name     string `json:"name"`
-	Price    int64  `json:"price"`
-	QTY      int64  `json:"qty"`
-}
-type ProductsWithoutCategory struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Price int64  `json:"price"`
-	QTY   int64  `json:"qty"`
-}
-
-func (s *Service) AllActiveProducts(ctx context.Context) ([]*Product, error) {
-	items := make([]*Product, 0)
+func (s *ProductService) AllActiveProducts(ctx context.Context) ([]*types.Product, error) {
+	items := make([]*types.Product, 0)
 	rows, err := s.pool.Query(ctx, `
-		select id,category,name,price,qty from products where  active=true order by category limit  500 
+		select id,category,name,price,qty from products where  active=true order by id limit  500 
 `)
 	if err != nil {
 
@@ -39,7 +26,7 @@ func (s *Service) AllActiveProducts(ctx context.Context) ([]*Product, error) {
 		return nil, err
 	}
 	for rows.Next() {
-		item := &Product{}
+		item := &types.Product{}
 		err = rows.Scan(&item.ID, &item.Category, &item.Name, &item.Price, &item.QTY)
 		if err != nil {
 			log.Println(err)
@@ -55,10 +42,10 @@ func (s *Service) AllActiveProducts(ctx context.Context) ([]*Product, error) {
 	return items, nil
 }
 
-func (s *Service) AllCategories(ctx context.Context) ([]*string, error) {
+func (s *ProductService) AllCategories(ctx context.Context) ([]*string, error) {
 	Categories := make([]*string, 0)
 	rows, err := s.pool.Query(ctx, `
-		select category from products where active=true limit 500
+		select distinct category from products where active=true limit 500 
 `)
 	if err != nil {
 		log.Println(err)
@@ -75,18 +62,18 @@ func (s *Service) AllCategories(ctx context.Context) ([]*string, error) {
 	}
 	return Categories, nil
 }
-func (s *Service) GetByCategory(ctx context.Context, category string) ([]*ProductsWithoutCategory, error) {
-	items := make([]*ProductsWithoutCategory, 0)
+func (s *ProductService) GetByCategory(ctx context.Context, category string) ([]*types.Product, error) {
+	items := make([]*types.Product, 0)
 	rows, err := s.pool.Query(ctx, `
-		select id,name,price,qty from products where active=true and category=$1 limit 500
+		select id,category,name,price,qty from products where active=true and category=$1 limit 500
 `, category)
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 	for rows.Next() {
-		product := &ProductsWithoutCategory{}
-		err = rows.Scan(&product.ID, &product.Name, &product.Price, &product.QTY)
+		product := &types.Product{}
+		err = rows.Scan(&product.ID, &product.Category, &product.Name, &product.Price, &product.QTY)
 		if err != nil {
 			log.Println(err)
 			return nil, err
@@ -96,8 +83,8 @@ func (s *Service) GetByCategory(ctx context.Context, category string) ([]*Produc
 	return items, nil
 }
 
-func (s *Service) Search(ctx context.Context, Key string) ([]*Product, error) {
-	items := make([]*Product, 0)
+func (s *ProductService) Search(ctx context.Context, Key string) ([]*types.Product, error) {
+	items := make([]*types.Product, 0)
 	rows, err := s.pool.Query(ctx, `
 		select id,category,name,price,qty from products where  active=true and lower(name) like lower($1)
 `, Key)
@@ -106,7 +93,7 @@ func (s *Service) Search(ctx context.Context, Key string) ([]*Product, error) {
 		return nil, err
 	}
 	for rows.Next() {
-		product := &Product{}
+		product := &types.Product{}
 		err = rows.Scan(&product.ID, &product.Category, &product.Name, &product.Price, &product.QTY)
 		if err != nil {
 			log.Println(err)

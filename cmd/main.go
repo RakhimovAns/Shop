@@ -3,13 +3,10 @@ package main
 import (
 	"context"
 	"github.com/RakhimovAns/Shop/cmd/server/app"
-	"github.com/RakhimovAns/Shop/pkg/carts"
-	"github.com/RakhimovAns/Shop/pkg/customer"
-	"github.com/RakhimovAns/Shop/pkg/products"
-	"github.com/RakhimovAns/Shop/pkg/purchase"
+	"github.com/RakhimovAns/Shop/pkg/postgresql"
+	"github.com/RakhimovAns/Shop/pkg/service"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"go.uber.org/dig"
 	"log"
 	"net"
 	"net/http"
@@ -28,44 +25,27 @@ func main() {
 }
 
 func execute(host string, port string, dsn string) (err error) {
-	deps := []interface{}{
-		app.NewServer,
-		http.NewServeMux,
-		mux.NewRouter,
-		func() (*pgxpool.Pool, error) {
-			ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
-			return pgxpool.Connect(ctx, dsn)
-		},
-		customer.NewService,
-		product.NewService,
-		carts.NewService,
-		purchase.NewService,
-		func(server *app.Server) *http.Server {
-			return &http.Server{
-				Addr:    net.JoinHostPort(host, port),
-				Handler: server,
-			}
-		},
-	}
-
-	container := dig.New()
-	for _, dep := range deps {
-		err := container.Provide(dep)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-	}
-
-	err = container.Invoke(func(server *app.Server) {
-		server.Init()
-	})
+	connectCtx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	pool, err := pgxpool.Connect(connectCtx, dsn)
 	if err != nil {
 		log.Println(err)
-		return err
+		return
 	}
-
-	return container.Invoke(func(server *http.Server) error {
-		return server.ListenAndServe()
-	})
+	defer pool.Close()
+	router := mux.NewRouter()
+	CustomerSqlSvc := postgresql.NewCustomerService(pool)
+	ProductSqlSvc := postgresql.NewProductService(pool)
+	CartSqlSvc := postgresql.NewCartService(pool)
+	PurchaseSqlSvc := postgresql.NewPurchaseService(pool)
+	CustomerSvc := service.NewCustomerService(CustomerSqlSvc)
+	ProductSvc := service.NewProductService(ProductSqlSvc)
+	CartSvc := service.NewCartService(CartSqlSvc)
+	PurchaseSvc := service.NewPurchaseService(PurchaseSqlSvc)
+	server := app.NewServer(router, CustomerSvc, ProductSvc, CartSvc, PurchaseSvc)
+	server.Init()
+	srv := &http.Server{
+		Addr:    net.JoinHostPort(host, port),
+		Handler: server,
+	}
+	return srv.ListenAndServe()
 }

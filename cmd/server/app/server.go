@@ -3,10 +3,8 @@ package app
 import (
 	"encoding/json"
 	"github.com/RakhimovAns/Shop/cmd/app/middleware"
-	"github.com/RakhimovAns/Shop/pkg/carts"
-	"github.com/RakhimovAns/Shop/pkg/customer"
-	product "github.com/RakhimovAns/Shop/pkg/products"
-	"github.com/RakhimovAns/Shop/pkg/purchase"
+	"github.com/RakhimovAns/Shop/pkg/service"
+	"github.com/RakhimovAns/Shop/types"
 	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
@@ -20,14 +18,14 @@ const (
 
 type Server struct {
 	mux          *mux.Router
-	customersSvc *customer.Service
-	productsSvc  *product.Service
-	cartsSvc     *carts.Service
-	purchasesSvc *purchase.Service
+	customersSvc *service.CustomerService
+	productsSvc  *service.ProductService
+	cartsSvc     *service.CartService
+	purchasesSvc *service.PurchaseService
 }
 
 // NewServer TODO Create NewServer
-func NewServer(mux *mux.Router, customerSvc *customer.Service, productSvc *product.Service, cartsSvc *carts.Service, purchasesSvc *purchase.Service) *Server {
+func NewServer(mux *mux.Router, customerSvc *service.CustomerService, productSvc *service.ProductService, cartsSvc *service.CartService, purchasesSvc *service.PurchaseService) *Server {
 	return &Server{mux: mux, customersSvc: customerSvc, productsSvc: productSvc, cartsSvc: cartsSvc, purchasesSvc: purchasesSvc}
 }
 
@@ -41,7 +39,7 @@ func (s *Server) Init() {
 	SubRoutineProduct := s.mux.PathPrefix("/api/products").Subrouter()
 	SubRoutineProduct.HandleFunc("", s.HandleGetProduct).Methods(GET)
 	SubRoutineProduct.HandleFunc("/category", s.HandleGetCategory).Methods(GET)
-	SubRoutineProduct.HandleFunc("/{category}", s.HandleGetProductByCategory).Methods(GET)
+	SubRoutineProduct.HandleFunc("/GetBy/{category}", s.HandleGetProductByCategory).Methods(GET)
 	SubRoutineProduct.HandleFunc("/search/{Word}", s.HandleGetProductBySearch).Methods(GET)
 
 	SubRoutineCustomers := s.mux.PathPrefix("/api/customer").Subrouter()
@@ -72,7 +70,7 @@ func (s *Server) Init() {
 
 // HandleRegister TODO  Register Customer
 func (s *Server) HandleRegister(writer http.ResponseWriter, request *http.Request) {
-	var item *customer.Customer
+	var item *types.Customer
 	err := json.NewDecoder(request.Body).Decode(&item)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -97,17 +95,20 @@ func (s *Server) HandleGetProduct(writer http.ResponseWriter, request *http.Requ
 		http.Error(writer, "Can't Get All Products", http.StatusBadRequest)
 		return
 	}
-	data, err := json.Marshal(items)
-	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	_, err = writer.Write([]byte("There is all products\n"))
+
 	writer.Header().Set("Content-Type", "application/json")
-	_, err = writer.Write(data)
-	if err != nil {
-		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ") // Настройте отступы для форматирования JSON
+
+	for i, item := range items {
+		if i > 0 {
+			writer.Write([]byte("\n")) // Добавляем символ новой строки перед каждым элементом (кроме первого)
+		}
+
+		if err := encoder.Encode(item); err != nil {
+			http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -185,20 +186,20 @@ func (s *Server) HandleGetProductBySearch(writer http.ResponseWriter, request *h
 
 // HandleLogin TODO Login and give token
 func (s *Server) HandleLogin(writer http.ResponseWriter, request *http.Request) {
-	var item *customer.Customer
+	var item *types.Customer
 	err := json.NewDecoder(request.Body).Decode(&item)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 	token, err := s.customersSvc.Login(request.Context(), item.Phone, *item.Password)
-	if err == customer.ErrNoSuchUser {
+	if err == types.ErrNoSuchUser {
 		_, err = writer.Write([]byte("No account with this phone number"))
 		if err != nil {
 			http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
 		}
-	} else if err == customer.ErrInvalidPassword {
+	} else if err == types.ErrInvalidPassword {
 		_, err = writer.Write([]byte("Passwords don't match"))
 		if err != nil {
 			http.Error(writer, http.StatusText(500), http.StatusInternalServerError)
@@ -230,7 +231,22 @@ func (s *Server) HandleLogin(writer http.ResponseWriter, request *http.Request) 
 // HandleDelete TODO Delete Customer
 func (s *Server) HandleDelete(writer http.ResponseWriter, request *http.Request) {
 	id := *<-channel
-	err := s.customersSvc.Delete(request.Context(), id)
+	err, ID := s.cartsSvc.GetCartID(request.Context(), id)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	err = s.cartsSvc.DeleteCart(request.Context(), ID)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	err = s.purchasesSvc.DeletePurchase(request.Context(), id)
+	if err != nil {
+		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	err = s.customersSvc.Delete(request.Context(), id)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -269,7 +285,7 @@ func (s *Server) HandleGetByID(writer http.ResponseWriter, request *http.Request
 
 // HandleAddToCart TODO Add To Cart
 func (s *Server) HandleAddToCart(writer http.ResponseWriter, request *http.Request) {
-	var Products *[]carts.Product
+	var Products *[]types.Product
 	err := json.NewDecoder(request.Body).Decode(&Products)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -291,7 +307,7 @@ func (s *Server) HandleAddToCart(writer http.ResponseWriter, request *http.Reque
 
 // HandleDeleteProduct TODO Delete Product From Cart
 func (s *Server) HandleDeleteProduct(writer http.ResponseWriter, request *http.Request) {
-	var Products *[]carts.Product
+	var Products *[]types.Product
 	err := json.NewDecoder(request.Body).Decode(&Products)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -312,7 +328,7 @@ func (s *Server) HandleDeleteProduct(writer http.ResponseWriter, request *http.R
 
 // HandleChangeQTY TODO Change QTY in Cart
 func (s *Server) HandleChangeQTY(writer http.ResponseWriter, request *http.Request) {
-	var Products *[]carts.Product
+	var Products *[]types.Product
 	err := json.NewDecoder(request.Body).Decode(&Products)
 	if err != nil {
 		http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -325,7 +341,7 @@ func (s *Server) HandleChangeQTY(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	err = s.cartsSvc.ChangeQTY(request.Context(), ID, Products)
-	if err == carts.ErrNoSuch {
+	if err == types.ErrNoSuch {
 		http.Error(writer, "You want to delete more than you have ", http.StatusBadRequest)
 		return
 	}
