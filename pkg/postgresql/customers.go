@@ -3,7 +3,6 @@ package postgresql
 import (
 	"context"
 	"encoding/hex"
-	"github.com/RakhimovAns/Shop/cmd/help"
 	"github.com/RakhimovAns/Shop/types"
 	"github.com/golang-jwt/jwt"
 	"github.com/jackc/pgx/v4"
@@ -60,7 +59,7 @@ func (s *CustomerService) Login(ctx context.Context, login string, password stri
 	if err != nil {
 		return "", types.ErrInvalidPassword
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &help.TokenClaim{
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &types.TokenClaim{
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(10 * time.Minute).Unix(),
 		},

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/RakhimovAns/Shop/cmd/server/app"
+	"github.com/RakhimovAns/Shop/pkg/handlers"
 	"github.com/RakhimovAns/Shop/pkg/postgresql"
 	"github.com/RakhimovAns/Shop/pkg/service"
 	"github.com/gorilla/mux"
@@ -42,7 +43,8 @@ func execute(host string, port string, dsn string) (err error) {
 	CartSvc := service.NewCartService(CartSqlSvc)
 	PurchaseSvc := service.NewPurchaseService(PurchaseSqlSvc)
 	server := app.NewServer(router, CustomerSvc, ProductSvc, CartSvc, PurchaseSvc)
-	server.Init()
+	Server := handlers.NewServer(server)
+	Server.Init()
 	srv := &http.Server{
 		Addr:    net.JoinHostPort(host, port),
 		Handler: server,
